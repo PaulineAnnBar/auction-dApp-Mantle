@@ -8,6 +8,8 @@ function App() {
   const [signer, setSigner] = useState(null);
   const [auctionContract, setAuctionContract] = useState(null);
   const [bidValue, setBidValue] = useState(0);
+  const [latestBid, setLatestBid] = useState(null);
+  const [newBidReceived, setNewBidReceived] = useState(false);
 
   const contractAddress = "0x3626e062bE8E31d326CB101A5C5e854E0DC74F63";
   const contractABI = ContractABI.abi;
@@ -19,6 +21,7 @@ function App() {
           window.ethereum
         );
         const signerInstance = providerInstance.getSigner();
+        console.log("i'm signed in");
 
         const auctionContractInstance = new ethers.Contract(
           contractAddress,
@@ -37,6 +40,7 @@ function App() {
     init();
   }, []);
 
+  // place a bid
   const placeBid = async () => {
     try {
       if (!auctionContract) return;
@@ -51,12 +55,60 @@ function App() {
       console.error("Error placing bid:", error);
     }
   };
+  useEffect(() => {
+    if (!auctionContract) return;
+
+    const onBidPlaced = (bidder, amount) => {
+      setLatestBid({ bidder, amount: ethers.utils.formatEther(amount) });
+      setNewBidReceived(true);
+    };
+
+    // Listen for the BidPlaced event from the smart contract
+    auctionContract.on("BidPlaced", onBidPlaced);
+
+    // Cleanup the event listener when the component unmounts
+    return () => auctionContract.off("BidPlaced", onBidPlaced);
+  }, [auctionContract]);
+
+  // const endTheAuction = async () => {
+  //   try {
+  //     if (!auctionContract) return;
+
+  //     const tx = await auctionContract.endAuction();
+
+  //     // Wait for the transaction to be confirmed
+  //     await tx.wait();
+  //     alert("Auction ended successfully!");
+  //   } catch (error) {
+  //     console.error("Error ending the auction:", error);
+  //   }
+  // };
+  // const withdrawFunds = async () => {
+  //   try {
+  //     if (!auctionContract) return;
+
+  //     const tx = await auctionContract.withdraw();
+
+  //     // Wait for the transaction to be confirmed
+  //     await tx.wait();
+  //     alert("Funds withdrawn successfully!");
+  //   } catch (error) {
+  //     console.error("Error withdrawing funds:", error);
+  //   }
+  // };
 
   return (
     <>
       <div></div>
       <h1>AUCTION DAPP MANTLE</h1>
       <div className="card">
+        {newBidReceived && (
+          <div className="notification">
+            New bid received! Bidder: {latestBid.bidder} Amount:{" "}
+            {latestBid.amount} ETH
+            <button onClick={() => setNewBidReceived(false)}>Close</button>
+          </div>
+        )}
         <input
           type="text"
           placeholder="Bid amount in ETH"
@@ -64,10 +116,9 @@ function App() {
           onChange={(e) => setBidValue(e.target.value)}
         />
         <button onClick={placeBid}>Place Bid</button>
+        {/* <button onClick={endTheAuction}>End Auction</button> */}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <button className="read-the-docs">Accept the end of Auction</button>
     </>
   );
 }
